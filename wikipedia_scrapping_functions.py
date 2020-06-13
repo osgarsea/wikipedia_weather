@@ -48,33 +48,29 @@ def import_cities (wiki_cities_100k_url):
         cities_table = soup.find('table',{'class':'wikitable sortable'})
         
         # Extract each record of the table
-        cities_records = cities_table.find_all('a')
+        cities_records = cities_table.find_all('td')
         
         # Loop through all the records to copy the city name and link in the dictionary
         i = 1
-        for link in cities_records:
-        
-            # Check if it's the odd record
-            if i%2 != 0:
-                city_list = []
-    
-                # Extract the city data
-                city_name = link.get('title')
-                city_link = link.get('href')
-                city_list.append('https://en.wikipedia.org' + city_link)
-    
-            # If it's the even record then...
-            else:
-                # Extract the country data
-                city_country = link.get('title')
-                country_link = link.get('href')
-    
-                city_list.insert(0, city_country)
-                city_list.append('https://en.wikipedia.org' + country_link)
-    
-                cities.update({city_name: city_list})
-            i = i + 1 
-    
+        for record in cities_records:
+            # Loop through all the links
+            for cell in record.find_all('a'):            
+                # Check if it's the odd record
+                if i%2 != 0:
+                    # Extract the city data
+                    city_name = cell.get('title')
+                    city_link = 'https://en.wikipedia.org{0}'.format(cell.get('href'))
+                    city_list = [None, city_link, None]
+                    cities.update({city_name: city_list})
+            
+                # If it's the even record then...
+                else:
+                    # Extract the country data
+                    country_name = cell.get('title')
+                    country_link = 'https://en.wikipedia.org{0}'.format(cell.get('href'))
+                    city_list = [country_name, city_link, country_link]
+                    cities.update({city_name: city_list})            
+            i+=1
     return cities
 
 
@@ -332,7 +328,8 @@ def get_column_values(record, values, selected_units):
 #        # and get the first (or second) value depending on the temperature units
         
 #        https://stackoverflow.com/questions/45269652/python-convert-string-to-float-error-with-negative-numbers
-        
+        print('______________________________')
+        print(col)
         cell_text = col.get_text()\
                 .replace('—', '0(0)').replace('trace', '0(0)')\
                 .replace('(','_').replace(')', '').replace('\n', '')\
@@ -341,8 +338,11 @@ def get_column_values(record, values, selected_units):
         cell_text = cell_text.translate({0x2c: '.', 0xa0: None, 0x2212: '-'})
         print('##{}##'.format(cell_text))
         print(*map(ud.name, cell_text), sep=', ')
-        values.append(selected_units[3](float(cell_text)))
         
+        try:
+            values.append(selected_units[3](float(cell_text)))
+        except:
+            values.append(None)
         
 #    selected_units[3](value[selected_units[4]])
 #    print ('Values extracted')
@@ -399,7 +399,8 @@ def extract_climate_data (climate_table, key, all_headers):
     
     for record in climate_table.find_all('tr')[2:-1]: # Extract each record of the table
         
-#        print('------')
+        print('=====================================')
+        print(record)
         # Get header and the unit I should choose
         values, selected_units, all_headers = get_headers(record, all_headers, key)
         

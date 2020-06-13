@@ -13,37 +13,46 @@ https://medium.com/analytics-vidhya/web-scraping-wiki-tables-using-beautifulsoup
 
 """
 
+import sys, os
+sys.path.append('C:\Personal_GIT_repositories\wikipedia_weather')
 
 
+from bs4 import BeautifulSoup as bs
+import csv
+import itertools
+from operator import itemgetter
 import pandas as pd
 import requests
-from bs4 import BeautifulSoup as bs
 import string
-import wikipedia_scrapping_functions as wsf
-import itertools
-import csv
 import unicodedata as ud 
 
-float('-2.0')
+
+# My libraries
+import wikipedia_scrapping_functions as wsf
+
+
+
+
 wiki_cities_100k_url = 'https://en.wikipedia.org/wiki/List_of_towns_and_cities_with_100,000_or_more_inhabitants/cityname:_'
-
-
-#cities = wsf.import_cities (wiki_cities_100k_url)
-
 
 cities_without_page = []
 cities_without_table = []
 all_headers = {}#set([])
+
+
+cities = wsf.import_cities (wiki_cities_100k_url)
+
+
 
 #df_col_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Annual']
 ##df_idx_names = ['City', 'Measure']
 #cities_climate = pd.DataFrame( columns=df_col_names)
 
 
-cities_sample = dict(itertools.islice(cities.items(), 1, 2))
+cities_sample = dict(itertools.islice(cities.items(), 0, 4))
 
 cities_sample = {key: cities[key] for key in cities.keys() 
-                               & {  'Leganés'}} 
+                               & {  'Abakan'}} 
 
 print(cities_sample)
 #key = 'İstanbul'
@@ -51,7 +60,7 @@ print(cities_sample)
 
 i = 0
 # Loop through the dictionary entries and retrieve the Wikipedia climate webpage for that city
-for key in cities_sample.keys():
+for key in cities.keys():
     i +=1
     print("----------------------------------------------------")
     print(key)
@@ -108,7 +117,15 @@ with open(csv_file, 'w', encoding="utf-8") as f:
     for key in all_headers.keys():
         f.write("\"{0}\"\t{1}\t\"{2}\"\n".format(key,all_headers[key][0], all_headers[key][1]))
 
+
+
 # ==============================================================================
+# ==============================================================================
+# ==============================================================================
+# ==============================================================================
+
+
+
 """
 
 # Read the webpage with Beautiful Soup so we can work with it
