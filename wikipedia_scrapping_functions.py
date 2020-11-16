@@ -159,27 +159,30 @@ def new_record_title (header_text):
     print_start('new_record_title')
     
     names = {
-            'record high humidex'         : 'Record high humidex',
+            'record high humidex'         : 'Record high humidex (°C)',
             'record high'                 : 'Record high (°C)',
             'mean maximum'                : 'Mean maximum (°C)',
             'average high'                : 'Average high (°C)',
             'daily mean'                  : 'Daily mean (°C)',
             'average low'                 : 'Average low (°C)',
             'mean minimum'                : 'Mean minimum (°C)',
-            'ecord low wind chill'        : 'Record low wind chill',
+            'record low wind chill'       : 'Record low wind chill (°C)',
             'record low'                  : 'Record low (°C)',
             'average precipitation mm'    : 'Average precipitation (mm)',
+            'average precipitation cm'    : 'Average precipitation (mm)',
             'average rainfall'            : 'Average precipitation (mm)',
             'average precipitation inches': 'Average precipitation (mm)',
-            'Average precipitation inches (mm)'
             'average precipitation days'  : 'Average rainy days',
+            'average rainy days'          : 'Average rainy days',
             'average snowy days'          : 'Average snowy days',
-            'average snowfall'            : 'Average snowfall (cm)',
+            'average snowfall'            : 'Average snowfall (mm)',
             'relative humidity'           : 'Average relative humidity (%)',
             'monthly sunshine hours'      : 'Mean monthly sunshine hours',
             'daily sunshine hours'        : 'Mean daily sunshine hours',
             'percent possible sunshine'   : 'Percent possible sunshine',
-            'average ultraviolet index'   : 'Average ultraviolet index'
+            'average ultraviolet index'   : 'Average ultraviolet index',
+            'average dew point'           : 'Average dew point (°C)',
+            'mean daily daylight hours'   : 'Mean daily daylight hours'
             }
 
     for key in names.keys():
@@ -220,6 +223,7 @@ def format_climate_table (all_values, key):
     
     return df
 
+
 def check_if_page_exists (webpage_climate, cities_without_page, key):
     """
     Function to check whether the imported wikipedia page exists or not
@@ -239,8 +243,6 @@ def check_if_page_exists (webpage_climate, cities_without_page, key):
         cities_without_page.append(key)
         
     return cities_without_page
-
-
 
 
 def get_headers(record, all_headers, key):
@@ -287,7 +289,7 @@ def get_headers(record, all_headers, key):
         header = record.find_all('th')[0]
         
         orig_header_text = header.get_text().replace('\n', '')
-        print(orig_header_text)
+        # print(orig_header_text)
         
         all_headers = insert_header_value(all_headers, orig_header_text, key)
         #all_headers.add(orig_header_text)
@@ -296,7 +298,7 @@ def get_headers(record, all_headers, key):
         header_text = new_record_title(orig_header_text)
         
 #        print('{0} in process'.format(header_text))
-        print(selected_units)
+        # print(selected_units)
         values.append(header_text)
     elif len(record.find_all('th')) == 0:
         selected_units = [None,None,None,None,0]
@@ -306,6 +308,7 @@ def get_headers(record, all_headers, key):
     
     return values, selected_units, all_headers
   
+    
 def get_column_values(record, values, selected_units):
     """
     Loop through all the columns in one record to extract all the values
@@ -328,16 +331,16 @@ def get_column_values(record, values, selected_units):
 #        # and get the first (or second) value depending on the temperature units
         
 #        https://stackoverflow.com/questions/45269652/python-convert-string-to-float-error-with-negative-numbers
-        print('______________________________')
-        print(col)
+        # print('______________________________')
+        # print(col)
         cell_text = col.get_text()\
                 .replace('—', '0(0)').replace('trace', '0(0)')\
                 .replace('(','_').replace(')', '').replace('\n', '')\
                 .replace(',', '').replace('\U00002013', '—')\
                 .split('_')[selected_units[4]]
         cell_text = cell_text.translate({0x2c: '.', 0xa0: None, 0x2212: '-'})
-        print('##{}##'.format(cell_text))
-        print(*map(ud.name, cell_text), sep=', ')
+        # print('##{}##'.format(cell_text))
+        # print(*map(ud.name, cell_text), sep=', ')
         
         try:
             values.append(selected_units[3](float(cell_text)))
@@ -387,8 +390,7 @@ def data_to_dataframe(all_values, key):
     df['City'] = key         
     df.set_index(['City', 'Measure'], inplace = True)
     
-    return df         
-#
+    return df    
 
 
 def extract_climate_data (climate_table, key, all_headers):
@@ -399,8 +401,8 @@ def extract_climate_data (climate_table, key, all_headers):
     
     for record in climate_table.find_all('tr')[2:-1]: # Extract each record of the table
         
-        print('=====================================')
-        print(record)
+        # print('=====================================')
+        # print(record)
         # Get header and the unit I should choose
         values, selected_units, all_headers = get_headers(record, all_headers, key)
         
