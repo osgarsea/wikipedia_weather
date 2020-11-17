@@ -1,15 +1,30 @@
-# -*- coding: utf-8 -*-
+__author___ = "Oscar Garcia"
+__version__ = "1.0.0"
+__copyright__ = "Copyright (c) 2020 - 2021 Oscar Garcia-Costa"
+__file__ = 'wikipedia_scrapping_functions.py'
+
+
 """
 Created on Thu Nov 14 07:07:43 2019
 
 @author: costao1
+
+Additional info:
+    
+https://realpython.com/python-requests/
+https://www.crummy.com/software/BeautifulSoup/
+https://medium.com/analytics-vidhya/web-scraping-wiki-tables-using-beautifulsoup-and-python-6b9ea26d8722
+
 """
+
+
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup as bs
 import string
 from operator import itemgetter
-import unicodedata as ud 
+# import unicodedata as ud 
+from wikipedia_scrapping_parameters import wiki_cities_100k_url, csvs_folder
 
 def import_cities (wiki_cities_100k_url):
     """
@@ -418,6 +433,87 @@ def extract_climate_data (climate_table, key, all_headers):
     
     return record, city_climate_df, all_headers
   
+    
+
+def export_data (all_headers, cities_climate):
+    
+    # Extract all headers table
+    with open('{}\all_headers.csv'.format(csvs_folder), 'w', encoding="utf-8") as f:
+        for key in all_headers.keys():
+            f.write("\"{0}\"\t{1}\t\"{2}\"\n".format(key,all_headers[key][0], all_headers[key][1]))
+            # f.write("\"{0}\",{1},\"{2}\"\n".format(key,all_headers[key][0], all_headers[key][1]))
+    print('All headers exported to CSV\n')
+    
+    # Extract the climate table
+    cities_climate.to_csv('{}\cities_climate.csv'.format(csvs_folder), encoding = 'utf-8')
+    print('Cities climate exported to CSV\n')
+    
+
+def extract_all_climate_data ():
+    
+    cities_without_page = []
+    cities_with_errors = []
+    cities_without_table = []
+    all_headers = {}
+    cities = import_cities (wiki_cities_100k_url)
+    
+    
+    
+    # cities_sample = dict(itertools.islice(cities.items(), 0, 4))
+    # cities_sample = {key: cities[key] for key in cities.keys() 
+    #                                & {  'Abakan'}} 
+    #key = 'İstanbul'
+    #cities_sample = cities[key]
+    
+    i = 0
+    # Loop through the dictionary entries and retrieve the Wikipedia climate webpage for that city
+    for key in cities.keys():
+        i +=1
+        print("----------------------------------------------------")
+        print(key)
+        print('PROCESSING: {}'.format(key.upper()))
+        print('City number {0}'.format(i))
+        
+        # Extract the link for the city climate webpage
+        link = cities[key][1] + '#Climate'
+        print('{}\n'.format(link))
+        
+        
+        # Get the webpage as text
+        try:
+            webpage_climate = requests.get(link).text
+        except:
+            cities_with_errors.append(key)
+            print("City page doesn't exist\n")
+        
+        cities_without_page = check_if_page_exists (webpage_climate, cities_without_page, key)
+        
+        # Read the webpage with Beautiful Soup so we can work with it
+        soup = bs(webpage_climate,'lxml')
+    
+        # Extract the whole table from the webpage
+        climate_table = extract_table(soup, cities_without_table, key)
+        
+        # Extract climate data for each city
+        if climate_table is None:
+            continue
+        else:
+            try:
+                record, city_climate_df, all_headers = extract_climate_data (climate_table, key, all_headers)
+                if i == 1:
+                    cities_climate = city_climate_df.copy(deep = True)
+                else:
+                    cities_climate = cities_climate.append(city_climate_df)#, verify_integrity = True)
+                print(city_climate_df)
+            except:
+                cities_with_errors.append(key)
+                print("This city threw and error\n")
+    
+    export_data(all_headers, cities_climate)
+    
+    return cities_climate, cities_without_page, cities_with_errors, cities_without_table, all_headers, cities
+
+
 
 def print_start(txt):
     #print('---------------------')
