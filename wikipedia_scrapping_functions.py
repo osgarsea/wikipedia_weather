@@ -24,6 +24,8 @@ from bs4 import BeautifulSoup as bs
 import string
 from operator import itemgetter
 # import unicodedata as ud 
+import datetime
+
 from wikipedia_scrapping_parameters import wiki_cities_100k_url, csvs_folder
 
 def import_cities (wiki_cities_100k_url):
@@ -45,7 +47,8 @@ def import_cities (wiki_cities_100k_url):
     # https://medium.com/analytics-vidhya/web-scraping-wiki-tables-using-beautifulsoup-and-python-6b9ea26d8722
     
     
-    print_start('import_cities')
+    start_time = datetime.datetime.now()
+    print_start('Exporting climate data for cities', start_time)
     
     # Empty dictionary to store all the cities and the Wikipedia links
     cities = {}
@@ -86,6 +89,9 @@ def import_cities (wiki_cities_100k_url):
                     city_list = [country_name, city_link, country_link]
                     cities.update({city_name: city_list})            
             i+=1
+    
+    print_last(start_time)
+    
     return cities
 
 
@@ -101,7 +107,7 @@ def extract_table (soup, cities_without_table, key):
          climate_table (str): text file with the table data in HTML format
     """
     
-    print_start('extract_table')
+    # print_start('extract_table')
     
     if soup.find('table',{'class':'wikitable collapsible'}) is not None:
         climate_table = soup.find('table',{'class':'wikitable collapsible'})
@@ -171,7 +177,7 @@ def new_record_title (header_text):
         record title: The final standard record name
     """
     
-    print_start('new_record_title')
+    # print_start('new_record_title')
     
     names = {
             'record high humidex'         : 'Record high humidex (°C)',
@@ -223,7 +229,7 @@ def format_climate_table (all_values, key):
         df (DataFrame): the climate table as a dataframe in the correct format
     """
     
-    print_start('format_climate_table')
+    # print_start('format_climate_table')
     
     # Convert the list to a dataframe
     df = pd.DataFrame(all_values)
@@ -251,7 +257,6 @@ def check_if_page_exists (webpage_climate, cities_without_page, key):
         cities_withour_page (list): updated list
     """
     
-    print_start('check_if_page_exists')
     
     if 'Wikipedia does not have an article with this exact name' in webpage_climate:
         print('Article not found in ', key)
@@ -296,7 +301,7 @@ def get_headers(record, all_headers, key):
         return all_headers
     
     
-    print_start('get_headers')
+    # print_start('get_headers')
     
     values = []
     
@@ -338,7 +343,7 @@ def get_column_values(record, values, selected_units):
         values (list): completed list with all the values of one record including the header
     """
     
-    print_start('get_column_values')
+    # print_start('get_column_values')
     
     for col in record.find_all('td'):
 #
@@ -381,7 +386,7 @@ def data_to_dataframe(all_values, key):
         df (dataframe): formatted dataframe with the climate values for the city
     """
     
-    print_start('data_to_dataframe')
+    # print_start('data_to_dataframe')
     
     fields_dict = {0  : 'Measure',
                    1  : 'Jan',
@@ -410,7 +415,7 @@ def data_to_dataframe(all_values, key):
 
 def extract_climate_data (climate_table, key, all_headers):
     
-    print_start('extract_climate_data')
+    # print_start('extract_climate_data')
     
     all_values = []
     
@@ -438,7 +443,7 @@ def extract_climate_data (climate_table, key, all_headers):
 def export_data (all_headers, cities_climate):
     
     # Extract all headers table
-    with open('{}\all_headers.csv'.format(csvs_folder), 'w', encoding="utf-8") as f:
+    with open('{}\\all_headers.csv'.format(csvs_folder), 'w', encoding="utf-8") as f:
         for key in all_headers.keys():
             f.write("\"{0}\"\t{1}\t\"{2}\"\n".format(key,all_headers[key][0], all_headers[key][1]))
             # f.write("\"{0}\",{1},\"{2}\"\n".format(key,all_headers[key][0], all_headers[key][1]))
@@ -448,15 +453,19 @@ def export_data (all_headers, cities_climate):
     cities_climate.to_csv('{}\cities_climate.csv'.format(csvs_folder), encoding = 'utf-8')
     print('Cities climate exported to CSV\n')
     
-
+    
 def extract_all_climate_data ():
     
     cities_without_page = []
     cities_with_errors = []
     cities_without_table = []
     all_headers = {}
-    cities = import_cities (wiki_cities_100k_url)
     
+    cities = import_cities (wiki_cities_100k_url)
+    num_cities = len(cities.keys())
+    
+    start_time = datetime.datetime.now()
+    print_start('Exporting climate data for cities', start_time)
     
     
     # cities_sample = dict(itertools.islice(cities.items(), 0, 4))
@@ -469,10 +478,13 @@ def extract_all_climate_data ():
     # Loop through the dictionary entries and retrieve the Wikipedia climate webpage for that city
     for key in cities.keys():
         i +=1
-        print("----------------------------------------------------")
-        print(key)
-        print('PROCESSING: {}'.format(key.upper()))
-        print('City number {0}'.format(i))
+        
+        
+        
+        start_time_all = datetime.datetime.now()
+        print_start(key, start_time_all)
+        
+        print('City number {0}/{1}'.format(i, num_cities))
         
         # Extract the link for the city climate webpage
         link = cities[key][1] + '#Climate'
@@ -508,14 +520,42 @@ def extract_all_climate_data ():
             except:
                 cities_with_errors.append(key)
                 print("This city threw and error\n")
+                
+        print_time(start_time_all)
     
-    export_data(all_headers, cities_climate)
+    
+    print_last(start_time)
     
     return cities_climate, cities_without_page, cities_with_errors, cities_without_table, all_headers, cities
 
 
 
-def print_start(txt):
-    #print('---------------------')
-#    print('Running: {}'.format(txt.upper()))
-    pass
+def print_start(function_name, start_time):
+    print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("Function {} starting".format(function_name.upper()))
+    print('{:%Y-%m-%d %H:%M:%S}'.format(start_time))
+    print("...")
+
+
+def print_time(start_time):
+    time_used_seconds = (datetime.datetime.now() - start_time).seconds
+    time_used_seconds = time_used_seconds + (datetime.datetime.now() - start_time).microseconds / 1000000
+    # print("...")
+    print("--- {:.3f} seconds".format(time_used_seconds))
+    print("---------------------------------------------------")
+
+
+def print_last(start_time):
+    time_used_seconds = (datetime.datetime.now() - start_time).seconds
+    time_used_seconds = time_used_seconds + (datetime.datetime.now() - start_time).microseconds / 1000000
+    # print("...")
+    print("End of script")
+    print("--- {:.3f} seconds ---".format(time_used_seconds))
+    print("--- {:.3f} minutes ---".format(time_used_seconds / 60))
+    print('{:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now()))
+    print("===================================================")
+
+# def print_start(txt):
+#     #print('---------------------')
+# #    print('Running: {}'.format(txt.upper()))
+#     pass
