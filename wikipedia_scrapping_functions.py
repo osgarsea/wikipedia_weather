@@ -530,6 +530,45 @@ def extract_all_climate_data ():
 
 
 
+def import_and_reformat_climate_table ():
+    
+    # Import climate data
+    cities_climate = pd.read_csv('{}\cities_climate.csv'.format(csvs_folder), encoding = 'utf-8')
+    
+    # Create DF with month_id
+    fields_dict = {'Jan'    : 1,
+                   'Feb'    : 2,
+                   'Mar'    : 3,
+                   'Apr'    : 4,
+                   'May'    : 5,
+                   'Jun'    : 6,
+                   'Jul'    : 7,
+                   'Aug'    : 8,
+                   'Sep'    : 9,
+                   'Oct'    : 10,
+                   'Nov'    : 11,
+                   'Dec'    : 12,
+                   'Annual' : 13
+                  }
+    fields_names = pd.DataFrame.from_dict(fields_dict, orient = 'index', columns = ['Month_id'])
+            
+    
+    # Unpivot the climate table
+    climate_melted = pd.melt(cities_climate,
+                             id_vars = ['City', 'Measure'],
+                             var_name = 'Month',
+                             value_name = 'Value')
+    
+    # Merge with month_id table
+    climate = climate_melted.merge(fields_names, left_on='Month', right_index = True)
+    
+    # Change column order and sort values
+    climate = climate[['City', 'Measure', 'Month', 'Month_id', 'Value']]
+    climate.sort_values(['City', 'Measure', 'Month_id'], inplace = True)
+                        
+    return climate
+
+
 def print_start(function_name, start_time):
     print("+++++++++++++++++++++++++++++++++++++++++++++++++++")
     print("Function {} starting".format(function_name.upper()))
