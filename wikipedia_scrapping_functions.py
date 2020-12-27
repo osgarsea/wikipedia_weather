@@ -25,8 +25,10 @@ import string
 from operator import itemgetter
 # import unicodedata as ud 
 import datetime
+import numpy as np
+import statistics
 
-from wikipedia_scrapping_parameters import wiki_cities_100k_url, csvs_folder
+from wikipedia_scrapping_parameters import wiki_cities_100k_url, csvs_folder, conditions
 
 def import_cities (wiki_cities_100k_url):
     """
@@ -532,6 +534,19 @@ def extract_all_climate_data ():
 
 def import_and_reformat_climate_table ():
     
+    def add_ranks (climate):
+    
+        # Add ascending and descending rank to each category
+        climate['rnk_asc'] = climate.loc[climate['Month'] != 'Annual']\
+            .groupby(['City', 'Measure'])['Value'].rank(method = 'first', ascending=True)
+        climate['rnk_desc'] = climate.loc[climate['Month'] != 'Annual']\
+            .groupby(['City', 'Measure'])['Value'].rank(method = 'first', ascending=False).fillna(99)
+        
+        climate['rnk_asc'] = climate['rnk_asc'].fillna(99)
+        climate['rnk_desc'] = climate['rnk_desc'].fillna(99)
+        
+        return climate
+
     # Import climate data
     cities_climate = pd.read_csv('{}\cities_climate.csv'.format(csvs_folder), encoding = 'utf-8')
     
@@ -565,8 +580,52 @@ def import_and_reformat_climate_table ():
     # Change column order and sort values
     climate = climate[['City', 'Measure', 'Month', 'Month_id', 'Value']]
     climate.sort_values(['City', 'Measure', 'Month_id'], inplace = True)
+    
+    
+    climate = add_ranks (climate)
+    
+    # Create a dataframe with the name of the citirs only
+    cities_list = climate['City'].drop_duplicates().to_frame().reset_index(drop = True)
                         
-    return climate
+    return climate, cities_list
+
+
+
+def flag_conditions (cities_climate, cities_list):
+    for key, value in conditions.items():
+        print(key)
+        print(value)
+        
+        
+        if value[0] == 'Annual':
+            l = [99]
+        elif value[0] in ['Top 3']:
+            l = [10, 11, 12]
+        elif value[0] in ['Bottom 3']:
+            l = [1, 2, 3]
+        
+        
+        # Select cities with this measurement and calculate the average for the selected months/annual
+        selected_condition = cities_climate.loc[(cities_climate['Measure'] == value[1]) & (cities_climate['rnk_asc'].isin(l))]\
+                                           .groupby(['City', 'Measure'])['Value']\
+                                           .mean()\
+                                           .to_frame()
+                                            
+        # Add column with the difference
+        selected_condition['{} Dif'.format(key)] = selected_condition['Value'] - statistics.mean(value[2])
+        
+        # Rename value column
+        selected_condition.rename(columns={'Value': key}, inplace = True)
+        
+        cities_list = cities_list.merge(selected_condition, how = 'left', on = 'City')
+    
+        # Flag the cities that match the criteria
+        cities_list['{} Match'.format(key)] = np.where(
+            cities_list['{}'.format(key)].isnull(), pd.NA, np.where(\
+            cities_list['{}'.format(key)].between(value[2][0], value[2][1]), True, False))
+        
+    return cities_list
+
 
 
 def print_start(function_name, start_time):
