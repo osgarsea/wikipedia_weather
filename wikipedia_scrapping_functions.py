@@ -473,8 +473,8 @@ def extract_all_climate_data ():
     # cities_sample = dict(itertools.islice(cities.items(), 0, 4))
     # cities_sample = {key: cities[key] for key in cities.keys() 
     #                                & {  'Abakan'}} 
-    #key = 'İstanbul'
-    #cities_sample = cities[key]
+    # key = 'Kokshetau'
+    # cities_sample = cities[key]
     
     i = 0
     # Loop through the dictionary entries and retrieve the Wikipedia climate webpage for that city
@@ -592,10 +592,15 @@ def import_and_reformat_climate_table ():
 
 
 def flag_conditions (cities_climate, cities_list):
+    cities_list['Existing conditions'] = 0
+    cities_list['Matched conditions'] = 0
+    cities_list['Abs dif'] = 0
+    cities_list['rnk'] = 0
+    
     for key, value in conditions.items():
-        print(key)
-        print(value)
         
+        
+        rng = conditions[key][2][1] - conditions[key][2][0]
         
         if value[0] == 'Annual':
             l = [99]
@@ -613,6 +618,7 @@ def flag_conditions (cities_climate, cities_list):
                                             
         # Add column with the difference
         selected_condition['{} Dif'.format(key)] = selected_condition['Value'] - statistics.mean(value[2])
+        selected_condition['{} pctg Dif'.format(key)] = selected_condition['{} Dif'.format(key)]/rng
         
         # Rename value column
         selected_condition.rename(columns={'Value': key}, inplace = True)
@@ -623,6 +629,25 @@ def flag_conditions (cities_climate, cities_list):
         cities_list['{} Match'.format(key)] = np.where(
             cities_list['{}'.format(key)].isnull(), pd.NA, np.where(\
             cities_list['{}'.format(key)].between(value[2][0], value[2][1]), True, False))
+            
+        
+        # Count how many conditins exist and are matched
+        cities_list.loc[~cities_list['{}'.format(key)].isnull(), 'Existing conditions']+=1
+        cities_list.loc[cities_list['{} Match'.format(key)] == True, 'Matched conditions']+=1
+        
+        
+        cities_list['Abs dif'] = cities_list['Abs dif'] + abs(cities_list['{} pctg Dif'.format(key)].fillna(0)) 
+    
+    
+    try:
+        cities_list['Abs dif'] = cities_list['Abs dif'] / cities_list['Existing conditions']
+    except:
+        cities_list['Abs dif'] = np.NA
+    
+    
+    cities_list['rnk'] = cities_list['Abs dif'].rank(ascending=True, na_option = 'keep', method = 'min')
+    
+    cities_list.sort_values('rnk', inplace = True)
         
     return cities_list
 
