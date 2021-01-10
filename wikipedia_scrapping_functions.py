@@ -27,6 +27,7 @@ from operator import itemgetter
 import datetime
 import numpy as np
 import statistics
+import itertools
 
 from wikipedia_scrapping_parameters import wiki_cities_100k_url, csvs_folder, conditions
 
@@ -50,7 +51,7 @@ def import_cities (wiki_cities_100k_url):
     
     
     start_time = datetime.datetime.now()
-    print_start('Exporting climate data for cities', start_time)
+    print_start('Importing list of cities', start_time)
     
     # Empty dictionary to store all the cities and the Wikipedia links
     cities = {}
@@ -91,7 +92,8 @@ def import_cities (wiki_cities_100k_url):
                     city_list = [country_name, city_link, country_link]
                     cities.update({city_name: city_list})            
             i+=1
-    
+            
+    # print(cities)        
     print_last(start_time)
     
     return cities
@@ -137,14 +139,13 @@ def unit_position(text):
     Return:
     - selected_units (list): list in the format [units, rank priority, position, multiplier]
     """
-    
     units_list = [
                   ['°C'     , 1, text.find('°C')     , lambda a : a            ],
                   ['°F'     , 2, text.find('°F')     , lambda a : (a - 32)*5/9 ],
                   ['mm'     , 1, text.find('mm')     , lambda a : a            ],
                   ['cm'     , 2, text.find('cm')     , lambda a : a*10         ], # This could be change so when talking about snow it is measured in cm rather than mm
-                  ['inches' , 3, text.find('inches') , lambda a : a*25.4       ],
-                  ['daily sunshine hours', 1, text.find('daily sunshine hours'), lambda a : a*365/12] # This one will need to be improved so it can be multiplied by the exact number of days for each month
+                  ['inches' , 3, text.find('inches') , lambda a : a*25.4       ]
+                   # ['daily sunshine hours', 1, text.find('daily sunshine hours'), lambda a : a*365/12] # This one will need to be improved so it can be multiplied by the exact number of days for each month
                  ]
      
     
@@ -162,7 +163,7 @@ def unit_position(text):
 #        print(selected_units)
     else:
         selected_units = [None,None,None,lambda a : a,0]
-    
+        
     return selected_units
 
 
@@ -353,8 +354,6 @@ def get_column_values(record, values, selected_units):
 #        # and get the first (or second) value depending on the temperature units
         
 #        https://stackoverflow.com/questions/45269652/python-convert-string-to-float-error-with-negative-numbers
-        # print('______________________________')
-        # print(col)
         cell_text = col.get_text()\
                 .replace('—', '0(0)').replace('trace', '0(0)')\
                 .replace('(','_').replace(')', '').replace('\n', '')\
@@ -363,6 +362,7 @@ def get_column_values(record, values, selected_units):
         cell_text = cell_text.translate({0x2c: '.', 0xa0: None, 0x2212: '-'})
         # print('##{}##'.format(cell_text))
         # print(*map(ud.name, cell_text), sep=', ')
+        
         
         try:
             values.append(selected_units[3](float(cell_text)))
@@ -438,6 +438,20 @@ def extract_climate_data (climate_table, key, all_headers):
         
         values = []
     
+     
+    # When the sunshine hours is entered by day, convert it to monthly data 
+    try:
+        n = city_climate_df.loc[(key, 'Mean daily sunshine hours')] * [31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 365.25]
+        n = n.rename((key, 'Mean monthly sunshine hours'))
+        city_climate_df = city_climate_df.append(n, ignore_index = False)
+    except:
+        pass
+    
+    # Group by measure so we only get one record of each in case it is duplicated
+    # This can be improved by keeping the order, INVESTIGATE!
+    city_climate_df = city_climate_df.groupby(['City', 'Measure']).mean()
+    
+    
     return record, city_climate_df, all_headers
   
     
@@ -445,14 +459,15 @@ def extract_climate_data (climate_table, key, all_headers):
 def export_data (all_headers, cities_climate):
     
     # Extract all headers table
-    with open('{}\\all_headers.csv'.format(csvs_folder), 'w', encoding="utf-8") as f:
+    now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    with open('{}\\all_headers_{}.csv'.format(csvs_folder, now), 'w', encoding="utf-8") as f:
         for key in all_headers.keys():
             f.write("\"{0}\"\t{1}\t\"{2}\"\n".format(key,all_headers[key][0], all_headers[key][1]))
             # f.write("\"{0}\",{1},\"{2}\"\n".format(key,all_headers[key][0], all_headers[key][1]))
     print('All headers exported to CSV\n')
     
     # Extract the climate table
-    cities_climate.to_csv('{}\cities_climate.csv'.format(csvs_folder), encoding = 'utf-8')
+    cities_climate.to_csv('{}\cities_climate_{}.csv'.format(csvs_folder, now), encoding = 'utf-8')
     print('Cities climate exported to CSV\n')
     
     
@@ -471,8 +486,9 @@ def extract_all_climate_data ():
     
     
     # cities_sample = dict(itertools.islice(cities.items(), 0, 4))
-    # cities_sample = {key: cities[key] for key in cities.keys() 
-    #                                & {  'Abakan'}} 
+    cities_sample = {key: cities[key] for key in cities.keys() 
+                                    & {  'Ankara'}} 
+    print(cities_sample)
     # key = 'Kokshetau'
     # cities_sample = cities[key]
     
@@ -531,6 +547,10 @@ def extract_all_climate_data ():
     return cities_climate, cities_without_page, cities_with_errors, cities_without_table, all_headers, cities
 
 
+import datetime
+
+t = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") 
+
 
 def import_and_reformat_climate_table ():
     
@@ -548,7 +568,8 @@ def import_and_reformat_climate_table ():
         return climate
 
     # Import climate data
-    cities_climate = pd.read_csv('{}\cities_climate.csv'.format(csvs_folder), encoding = 'utf-8')
+    now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    cities_climate = pd.read_csv('{}\cities_climate_{}.csv'.format(csvs_folder, now), encoding = 'utf-8')
     
     # Create DF with month_id
     fields_dict = {'Jan'    : 1,
